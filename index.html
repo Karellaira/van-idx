@@ -1,0 +1,117 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Luxury Overlay + IDX (Proxy-powered)</title>
+  <style>
+    body { margin:0; background:#0b0c10; color:#e8ecf1; font: 400 16px/1.6 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif; }
+    .wrap { max-width:1200px; margin:40px auto; padding:0 16px; display:grid; grid-template-columns:1.2fr .8fr; gap:22px; }
+    iframe { width:100%; height:720px; border:0; background:#111; border-radius:20px; overflow:hidden; }
+    .mask { position:absolute; inset:0; background: rgba(11,12,16,.88); pointer-events:none; backdrop-filter: blur(2px); }
+    .fade { position:absolute; left:0; right:0; height:56px; pointer-events:none; background:linear-gradient(to bottom, rgba(11,12,16,0), rgba(11,12,16,.88)); }
+    .card { position:sticky; top:8px; background: radial-gradient(120% 120% at 0% 0%, #12141b 0%, #0f1117 60%); border-radius:22px; padding:22px; outline:1px solid rgba(255,255,255,.08); box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+    .badge { display:inline-flex; gap:8px; align-items:center; padding:6px 10px; border-radius:999px; background:linear-gradient(90deg, #d4af37, #a67c00); color:#111; font-size:12px; letter-spacing:.4px; text-transform:uppercase; box-shadow:0 0 0 3px rgba(212,175,55,.35); }
+    .price { font-size:34px; font-weight:700; margin:14px 0 2px; }
+    .addr { color:#cfd6e4; margin:0 0 14px; font-size:15px; }
+    .specs { display:flex; flex-wrap:wrap; gap:10px 16px; margin-bottom:16px; }
+    .specs span { font-size:14px; color:#cdd3df; }
+    .div { height:1px; background:linear-gradient(90deg, rgba(255,255,255,.06), rgba(255,255,255,0)); margin:14px 0; }
+    ul { display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; padding-left:18px; }
+    li { color:#bfc6d6; font-size:14px; }
+    .cta { margin-top:18px; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .btn { all:unset; text-align:center; padding:12px 14px; border-radius:14px; font-weight:600; cursor:pointer; }
+    .btn-primary { background: linear-gradient(90deg, #d4af37, #a67c00); color:#111; box-shadow:0 0 0 3px rgba(212,175,55,.35); }
+    .btn-ghost { background: rgba(255,255,255,.06); color:#e8ecf1; outline:1px solid rgba(255,255,255,.06); }
+    .control { margin: 0 16px 14px; display:flex; align-items:center; gap:10px; }
+    @media (max-width:980px){ .wrap{ grid-template-columns:1fr; } iframe{ height:600px; } ul{ grid-template-columns:1fr; } .cta{ grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="control">
+    <label for="h">Photo window height</label>
+    <input id="h" type="range" min="240" max="520" step="4" value="360">
+    <span id="hval">360px</span>
+    <span style="opacity:.6"> • Use ?listing=MLS123456 in URL to load a specific property</span>
+  </div>
+  <div class="wrap">
+    <div style="position:relative; border-radius:20px; overflow:hidden; outline:1px solid rgba(255,255,255,.06)">
+      <iframe id="har" src="https://www.har.com/idx/mls/listing?sitetype=aws&cid=633391&mlsorgid=1&allmls=n" title="HAR IDX"></iframe>
+      <div class="fade" id="fade" style="top:360px"></div>
+      <div class="mask" id="mask"></div>
+    </div>
+
+    <aside class="card">
+      <span class="badge">Exclusive • Private Collection</span>
+      <div class="price" id="price"></div>
+      <p class="addr" id="addr"></p>
+      <div class="specs" id="specs"></div>
+      <div class="div"></div>
+      <ul id="features"></ul>
+      <div class="cta">
+        <button class="btn btn-primary" id="tour">Book a Private Tour</button>
+        <a class="btn btn-ghost" id="brochure" href="#" download>Download Brochure</a>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    let IMAGE_STRIP_HEIGHT = 360;
+    const mask = document.getElementById('mask');
+    const fade = document.getElementById('fade');
+    const har = document.getElementById('har');
+    const hCtl = document.getElementById('h');
+    const hVal = document.getElementById('hval');
+
+    function updateMask(){
+      const h = IMAGE_STRIP_HEIGHT;
+      mask.style.webkitMaskImage = `linear-gradient(#0000 ${h}px, #000 ${h}px)`;
+      mask.style.maskImage = `linear-gradient(#0000 ${h}px, #000 ${h}px)`;
+      fade.style.top = h + 'px';
+      hVal.textContent = h + 'px';
+    }
+    hCtl.addEventListener('input', e => { IMAGE_STRIP_HEIGHT = parseInt(e.target.value,10); updateMask(); });
+    updateMask();
+    window.addEventListener('resize', updateMask);
+
+    // ------- Data fetch via your secure proxy -------
+    const priceEl = document.getElementById('price');
+    const addrEl = document.getElementById('addr');
+    const specsEl = document.getElementById('specs');
+    const featsEl = document.getElementById('features');
+    const brochureEl = document.getElementById('brochure');
+
+    function render(data){
+      const d = data || {};
+      priceEl.textContent = d.price || '';
+      addrEl.textContent = d.address || '';
+      specsEl.innerHTML = `
+        <span>🛏️ ${d.beds ?? ''} Beds</span>
+        <span>🛁 ${d.baths ?? ''} Baths</span>
+        <span>📐 ${(d.sqft? Number(d.sqft).toLocaleString(): '')} sqft</span>
+        <span>🌿 ${d.lot ?? ''}</span>
+        <span>🏗️ Built ${d.year ?? ''}</span>
+      `;
+      const feats = Array.isArray(d.features) ? d.features : String(d.features||'').split(/\n|•/).map(s=>s.trim()).filter(Boolean);
+      featsEl.innerHTML = feats.map(f=>`<li>• ${f}</li>`).join('');
+      brochureEl.href = d.brochureUrl || '#';
+      if (d.idxUrl) har.src = d.idxUrl;
+    }
+
+    async function load(){
+      const mlsId = new URLSearchParams(location.search).get('listing') || 'MLS123456';
+      try{
+        const res = await fetch(`http://localhost:3001/api/listing?mlsId=${encodeURIComponent(mlsId)}`);
+        if(!res.ok) throw new Error('proxy error');
+        const data = await res.json();
+        render(data);
+      }catch(e){
+        console.error(e);
+        render(null);
+      }
+    }
+    load();
+  </script>
+</body>
+</html>
