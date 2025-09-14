@@ -13,11 +13,9 @@ if (!API_KEY) {
   process.exit(1);
 }
 
-// TODO: Replace with your live site domains
 app.use(cors({ origin: [/^http:\/\/localhost:\d+$/, /^https:\/\/.+$/] }));
 app.use(express.json());
 
-// Map provider response -> the fields your frontend card uses
 function mapListing(api) {
   const get = (obj, path, fallback='') => {
     try { return path.split('.').reduce((o,k)=>o?.[k], obj) ?? fallback; } catch { return fallback; }
@@ -58,18 +56,13 @@ function mapListing(api) {
   };
 }
 
-// GET /api/listing?mlsId=XXXX
 app.get('/api/listing', async (req, res) => {
   try {
     const { mlsId } = req.query;
     if (!mlsId) return res.status(400).json({ error: 'Missing mlsId' });
 
-    // Example Repliers endpoint (adjust if your provider differs)
     const endpoint = `https://api.repliers.com/v1/listings/${encodeURIComponent(mlsId)}`;
-
-    const r = await fetch(endpoint, {
-      headers: { Authorization: `Bearer ${API_KEY}` }
-    });
+    const r = await fetch(endpoint, { headers: { Authorization: `Bearer ${API_KEY}` } });
 
     if (!r.ok) {
       const text = await r.text();
@@ -77,7 +70,6 @@ app.get('/api/listing', async (req, res) => {
     }
 
     const data = await r.json();
-    // Normalize shape: data might be wrapped or direct
     const raw = Array.isArray(data?.data) ? data.data[0] : (data?.data || data);
     const mapped = mapListing(raw || {});
     res.json(mapped);
